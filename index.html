@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Budget Tracker</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 1rem;
+    background: #f9fafb;
+    color: #333;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+  }
+  form {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 0 10px #ddd;
+    margin-bottom: 1rem;
+  }
+  label {
+    display: block;
+    margin: 0.5rem 0 0.2rem;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    font-size: 1rem;
+  }
+  textarea {
+    resize: vertical;
+  }
+  button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    background-color: #27ae60;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #219150;
+  }
+  .summary {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 0 10px #ddd;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-around;
+    font-weight: bold;
+  }
+  .summary div {
+    text-align: center;
+  }
+  .income {
+    color: #27ae60;
+  }
+  .expenses {
+    color: #c0392b;
+  }
+  .balance {
+    color: #2980b9;
+  }
+  ul.transactions {
+    list-style: none;
+    padding-left: 0;
+  }
+  ul.transactions li {
+    background: white;
+    margin-bottom: 0.5rem;
+    padding: 0.6rem;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    box-shadow: 0 0 6px #ddd;
+  }
+  ul.transactions li.income {
+    border-left: 5px solid #27ae60;
+  }
+  ul.transactions li.expense {
+    border-left: 5px solid #c0392b;
+  }
+  .transaction-info {
+    max-width: 70%;
+  }
+  .transaction-amount {
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Budget Tracker</h1>
+
+<form id="transaction-form">
+  <label for="type">Type</label>
+  <select id="type" required>
+    <option value="income">Income</option>
+    <option value="expense">Expense</option>
+  </select>
+
+  <label for="amount">Amount</label>
+  <input type="number" id="amount" step="0.01" min="0.01" required placeholder="e.g. 100.00" />
+
+  <label for="category">Category</label>
+  <input type="text" id="category" required placeholder="e.g. Salary, Food, Rent" />
+
+  <label for="description">Description</label>
+  <textarea id="description" rows="2" placeholder="Optional"></textarea>
+
+  <button type="submit">Add</button>
+</form>
+
+<div class="summary">
+  <div class="income">Income: $<span id="total-income">0.00</span></div>
+  <div class="expenses">Expenses: $<span id="total-expenses">0.00</span></div>
+  <div class="balance">Balance: $<span id="balance">0.00</span></div>
+</div>
+
+<ul class="transactions" id="transactions-list"></ul>
+
+<script>
+  const form = document.getElementById('transaction-form');
+  const typeInput = document.getElementById('type');
+  const amountInput = document.getElementById('amount');
+  const categoryInput = document.getElementById('category');
+  const descriptionInput = document.getElementById('description');
+  const transactionsList = document.getElementById('transactions-list');
+  const totalIncomeEl = document.getElementById('total-income');
+  const totalExpensesEl = document.getElementById('total-expenses');
+  const balanceEl = document.getElementById('balance');
+
+  // Load from localStorage or start empty
+  let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+  function saveTransactions() {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }
+
+  function formatCurrency(num) {
+    return Number(num).toFixed(2);
+  }
+
+  function updateSummary() {
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const balance = income - expenses;
+
+    totalIncomeEl.textContent = formatCurrency(income);
+    totalExpensesEl.textContent = formatCurrency(expenses);
+    balanceEl.textContent = formatCurrency(balance);
+  }
+
+  function renderTransactions() {
+    transactionsList.innerHTML = '';
+    if (transactions.length === 0) {
+      transactionsList.innerHTML = '<li>No transactions yet</li>';
+      return;
+    }
+    transactions.forEach(({id, type, amount, category, description}) => {
+      const li = document.createElement('li');
+      li.className = type;
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'transaction-info';
+      infoDiv.innerHTML = `<strong>${category}</strong><br><small>${description || ''}</small>`;
+
+      const amountDiv = document.createElement('div');
+      amountDiv.className = 'transaction-amount';
+      amountDiv.textContent = (type === 'expense' ? '-' : '+') + '$' + formatCurrency(amount);
+
+      li.appendChild(infoDiv);
+      li.appendChild(amountDiv);
+
+      transactionsList.appendChild(li);
+    });
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+
+    const type = typeInput.value;
+    const amount = parseFloat(amountInput.value);
+    const category = categoryInput.value.trim();
+    const description = descriptionInput.value.trim();
+
+    if (amount <= 0 || !category) {
+      alert('Please enter valid amount and category');
+      return;
+    }
+
+    const newTransaction = {
+      id: Date.now(),
+      type,
+      amount,
+      category,
+      description,
+    };
+
+    transactions.push(newTransaction);
+    saveTransactions();
+    updateSummary();
+    renderTransactions();
+
+    form.reset();
+    typeInput.value = 'income';
+  });
+
+  // Initial render
+  updateSummary();
+  renderTransactions();
+</script>
+
+</body>
+</html>
